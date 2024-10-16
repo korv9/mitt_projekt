@@ -37,7 +37,8 @@ class GUI: #klass för tkinter GUI,
 
         self.temperature_label = tkinter.Label(self.root, font= 40, text="")
         self.temperature_label.place(x=(window_width - label_width)//2, y=100)
-
+        self.wind_label = tkinter.Label(self.root, font= 40, text="")
+        self.wind_label.place(x=(window_width - label_width)//2, y=120)
         #self.image_label = tkinter.Label(self.root)
         #self.image_label.pack(pady=10)
         
@@ -47,18 +48,27 @@ class GUI: #klass för tkinter GUI,
 
         self.random_city_button = tkinter.Button(self.root, text="surprise city....",width=20, command=lambda: self.fetch_random_city_weather())
         self.random_city_button.place(x=(window_width - button_width)//2 + button_width, y=650)
+        
+        
 
 
 
 
 # knapp som kallar på funktion
 
-
+        self.recent_searches = [] # tom lista för att spara de 5 senaste sökningarna
 
     def fetch_weather(self):
-        city = City(self.city_name.get(),self)
+        
+        city_name =self.city_name.get()
+        city = City(city_name, self)
         city.get_weather()
         city.get_picture()
+        
+       # if city_name not in self.recent_searches:
+           # self.recent_searches.append(city_name)
+            #if len(self.recent_searches) >5: #kollar om det är mer än 5 element i listan, tar bort det första elementet
+                #self.recent_searches.pop[0]
         
     def fetch_random_city_weather(self): #funktion för att hämta random stad från lista
         cities_file_path = "mitt_projekt\cities_list.txt"
@@ -111,12 +121,32 @@ class City: #klass för att strukturera upp väderdatan stad för stad
                 response = requests.get(url).json()
                 data = response
                 
+                
                 if "error" in data: # det kan bli error trots statuscode 200, om den inte hittar angivna staden
-                    GUI.weather_label.config(text="har aldrig hört talats om den där staden!") 
+                    self.gui.weather_label.config(text="har aldrig hört talats om den där staden!") 
                 else:
                    #skrivet ut värden om vädret från JSon api
                     temp = response["current"]["temp_c"]
                     weather = response["current"]["condition"]["text"]
+                    wind_kph = response["current"]["wind_kph"]
+                    wind_direction = response["current"]["wind_dir"]
+                    # för att skriva om riktning av vinden
+                    wind_direction_map = {
+                        "NW": "North Western",
+                        "SW": "South Western",
+                        "W": "Western",
+                        "E": "Eastern",
+                        "SE": "South Eastern",
+                        "NE": "North Eastern",
+                        "S": "Southern",
+                        "N": "Northern"
+                        
+                    }
+                    wind_direction = wind_direction_map.get(wind_direction,wind_direction)
+                    
+                    wind_per_second = wind_kph /3.6
+                    
+                    
                     
                     
                     self.latitude = response["location"]["lat"]
@@ -124,7 +154,7 @@ class City: #klass för att strukturera upp väderdatan stad för stad
                     self.country = response["location"]["country"]
                     
                     
-                    
+                    self.gui.wind_label.config(text=f" {wind_direction} winds with a speed of {wind_per_second:.2f} m/s  ",  font = "30" )
                     #skriver ut till textlabels
                     self.gui.temperature_label.config(text=f" {self.name}, {self.country} has a temperature of {temp}C", font = "30")
                     
@@ -171,7 +201,7 @@ class City: #klass för att strukturera upp väderdatan stad för stad
                 
                         
                 else:
-                    print("misslyckades att hämta bild")
+                    self.gui.weather_label.config(text="misslyckades att hämta bild")
 
             except Exception as e:
                 
