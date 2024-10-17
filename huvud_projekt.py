@@ -3,6 +3,7 @@ import os
 from PIL import Image, ImageTk #för att visa bilden
 from io import BytesIO #hantera bild data
 import tkinter 
+from tkinter import font as tkFont
 import random
 import datetime
 import threading
@@ -13,65 +14,47 @@ class GUI: #klass för tkinter GUI,
         self.root=tkinter.Tk()
         self.root.title("weather app")
         self.root.geometry("800x800")
-        self.text_label=tkinter.Label(self.root,text="welcome to app")
-        self.text_label.pack()
-        
-        self.bg_label = tkinter.Label(self.root) #backgrundsbild label
+
+        weather_font = tkFont.Font(family="Helvetica", size=16, weight="bold")   #fonts för text labels
+        wind_font = tkFont.Font(family="Helvetica", size=12, weight="bold")
+
+        self.bg_label = tkinter.Label(self.root) #backgrundsbild label, uppdateras med satelitbilden så den hamnar bakom de andra labelsen
         self.bg_label.place(relwidth=1, relheight=1)
-        
-        # värden för att centrera labels o buttons
-        window_width = 800
-        label_width = 300 
+
         button_width = 160 
-        entry_width = 160
+        
         
         self.city_name = tkinter.StringVar() #sparar det man skriver i boxen 
-        self.name_entry = tkinter.Entry(self.root,textvariable = self.city_name,  width=20, font=('calibre',10,'normal'))
-        self.name_entry.place(x=(window_width - entry_width) //2 , y=550) #bakar in formeln window width - label_width / 2 för att få det centrerat
+        self.name_entry = tkinter.Entry(self.root,textvariable = self.city_name,  width=20, font=wind_font)
+        self.name_entry.place(relx=0.5 , y=550, anchor="center") #centrerar labeln
 
-        label_width = 300 # värde för label pixel bredd, för att kunna centrera dom
-        button_width = 160 # värde för button bredd
-        #tomma labels för att sedan uppdatera senare
-        self.weather_label = tkinter.Label(self.root, font=40, text="")
-        self.weather_label.place(x=(window_width - label_width)//2, y=60)
-
-        self.temperature_label = tkinter.Label(self.root, font= 40, text="")
-        self.temperature_label.place(x=(window_width - label_width)//2, y=100)
-        self.wind_label = tkinter.Label(self.root, font= 40, text="")
-        self.wind_label.place(x=(window_width - label_width)//2, y=120)
-        #self.image_label = tkinter.Label(self.root)
-        #self.image_label.pack(pady=10)
-        
-        self.fetch_button = tkinter.Button(self.root, text="Get Weather",width=20, command=lambda: self.fetch_weather()) 
-        self.fetch_button.place(x=(window_width - button_width)//2 - button_width, y=650)
-       # self.fetch_button.bind("<Enter>", fetch_weather())
-
-        self.random_city_button = tkinter.Button(self.root, text="surprise city....",width=20, command=lambda: self.fetch_random_city_weather())
-        self.random_city_button.place(x=(window_width - button_width)//2 + button_width, y=650)
         
         
-
-
-
-
-# knapp som kallar på funktion
-
-        self.recent_searches = [] # tom lista för att spara de 5 senaste sökningarna
-
-    def fetch_weather(self):
+         #huvudlabel som skriver ut väderinfo
+        self.temperature_label = tkinter.Label(self.root, font=weather_font, fg="black",  text="")
+        self.temperature_label.place(relx=0.5, y=100, anchor="center")
         
+          #sök-knappen
+        self.fetch_button = tkinter.Button(self.root, text="Search city", font=wind_font, command=lambda: self.fetch_weather()) 
+        self.fetch_button.place(relx=0.5, y=600, anchor="center", width=button_width)
+       
+        #random-knappen
+        self.random_city_button = tkinter.Button(self.root, text="Random city",font=wind_font, command=lambda: self.fetch_random_city_weather())
+        self.random_city_button.place(relx=0.5, y=650, anchor="center", width=button_width)
+        
+        
+    def fetch_weather(self): #funktionen som kallar på väder och bild funktionerna
+        self.fetch_button.config(state=tkinter.DISABLED) #stänger av knappen medans det laddar
         city_name =self.city_name.get()
         city = City(city_name, self)
         city.get_weather()
         city.get_picture()
-        
-       # if city_name not in self.recent_searches:
-           # self.recent_searches.append(city_name)
-            #if len(self.recent_searches) >5: #kollar om det är mer än 5 element i listan, tar bort det första elementet
-                #self.recent_searches.pop[0]
+        self.fetch_button.config(state=tkinter.NORMAL) #startar knappen igen
+       
         
     def fetch_random_city_weather(self): #funktion för att hämta random stad från lista
-        cities_file_path = "mitt_projekt\cities_list.txt"
+        self.random_city_button.config(state=tkinter.DISABLED)
+        cities_file_path = "cities_list.txt"
         
         if os.path.exists(cities_file_path): #kollar om filen finns
             
@@ -83,8 +66,25 @@ class GUI: #klass för tkinter GUI,
                 city = City(random_city, self)
                 city.get_weather() 
                 city.get_picture()
+        self.random_city_button.config(state=tkinter.NORMAL)
 
 
+class Weather_API: #klass för att samla API 
+    
+        
+         
+    def get_weather_api(city_name):# hämtar info och skriver ut väder
+        
+        url = f"http://api.weatherapi.com/v1/current.json?key={API_key_weather}&q={city_name}" # skickar in API nyckeln i url samt stadens namn
+
+        
+        response = requests.get(url).json()
+        return response
+
+    def get_satellite_image_api(lat, lon, date):
+        url_nasa = f"https://api.nasa.gov/planetary/earth/imagery?lon={lon}&lat={lat}&date={date}&dim=0.09&api_key={API_key_nasa}" # skickar in koordinater samt datum för att få en bild av staden
+        response_nasa = requests.get(url_nasa)
+        return response_nasa 
 
 
 
@@ -95,17 +95,15 @@ class City: #klass för att strukturera upp väderdatan stad för stad
         
  
     def save_city(self): #funktion att spara städer för att sen randomizea 
-        cities_file_path = "mitt_projekt\cities_list.txt"
+        cities_file_path = "cities_list.txt"
           
         if not os.path.exists(cities_file_path): #skapar fil om den inte finns
           open(cities_file_path, 'w').close()
           
-          with open(cities_file_path, "r") as city_file: 
-               cities = city_file.read().splitlines() # delar upp efter raderna
-          
-          if self.name not in cities: # för att kolla så att inte en stad redan är skriven 
-                with open(cities_file_path, "a") as city_file:
-                      city_file.write(f"{self.name}\n")
+        with open(cities_file_path, "r+") as city_file: 
+            cities = city_file.read().splitlines() # delar upp efter raderna
+            if self.name not in cities: # för att kolla så att inte en stad redan är skriven 
+                city_file.write(f"{self.name}\n")
     
     
     
@@ -115,35 +113,35 @@ class City: #klass för att strukturera upp väderdatan stad för stad
     
     def get_weather(self):# hämtar info och skriver ut väder
         
-        url = f"http://api.weatherapi.com/v1/current.json?key={API_key_weather}&q={self.name}" # skickar in API nyckeln i url samt stadens namn
+        
 
         try:
-                response = requests.get(url).json()
-                data = response
+                
+                response = Weather_API.get_weather_api(self.name)
                 
                 
-                if "error" in data: # det kan bli error trots statuscode 200, om den inte hittar angivna staden
-                    self.gui.weather_label.config(text="har aldrig hört talats om den där staden!") 
+                if "error" in response: # det kan bli error trots statuscode 200, om den inte hittar angivna staden
+                    self.gui.weather_label.config(text="Could not recognize city name!") 
                 else:
-                   #skrivet ut värden om vädret från JSon api
+                   #fångar värden från response i variabler
                     temp = response["current"]["temp_c"]
                     weather = response["current"]["condition"]["text"]
                     wind_kph = response["current"]["wind_kph"]
                     wind_direction = response["current"]["wind_dir"]
+                    
                     # för att skriva om riktning av vinden
                     wind_direction_map = {
-                        "NW": "North Western",
-                        "SW": "South Western",
-                        "W": "Western",
-                        "E": "Eastern",
-                        "SE": "South Eastern",
-                        "NE": "North Eastern",
-                        "S": "Southern",
-                        "N": "Northern"
+                        "NW": "North West",
+                        "SW": "South West",
+                        "W": "West",
+                        "E": "East",
+                        "SE": "South East",
+                        "NE": "North East",
+                        "S": "South",
+                        "N": "North"
                         
                     }
                     wind_direction = wind_direction_map.get(wind_direction,wind_direction)
-                    
                     wind_per_second = wind_kph /3.6
                     
                     
@@ -154,11 +152,11 @@ class City: #klass för att strukturera upp väderdatan stad för stad
                     self.country = response["location"]["country"]
                     
                     
-                    self.gui.wind_label.config(text=f" {wind_direction} winds with a speed of {wind_per_second:.2f} m/s  ",  font = "30" )
-                    #skriver ut till textlabels
-                    self.gui.temperature_label.config(text=f" {self.name}, {self.country} has a temperature of {temp}C", font = "30")
                     
-                    self.gui.weather_label.config( text=f" It is {weather} in {self.name}!", font = "30", )
+                    #skriver ut till textlabels
+                    self.gui.temperature_label.config(text=f" {self.name}, {self.country}\n TEMP:{temp}C\nWEATHER: {weather}\n WINDS:{wind_per_second:.2f}m/s {wind_direction}")
+                    
+                    
                     
     
         except Exception as e:
@@ -169,12 +167,11 @@ class City: #klass för att strukturera upp väderdatan stad för stad
     def get_picture(self):
          
          datum = datetime.date.today()
-         # skickar in koordinaterna hämtade från Väder funktionen, samt datum och api key. 
-         url_nasa = f"https://api.nasa.gov/planetary/earth/imagery?lon={self.longitude}&lat={self.latitude}&date={datum}&dim=0.09&api_key={API_key_nasa}" #&dim=0.3
+          
          
          def fetch_image():
             try:
-                response_nasa = requests.get(url_nasa)
+                response_nasa = Weather_API.get_satellite_image_api(self.latitude,self.longitude, datum)
                 
                 
                 if response_nasa.status_code == 200: #IF sats för att se om API har hämtats rätt
@@ -184,7 +181,7 @@ class City: #klass för att strukturera upp väderdatan stad för stad
                     # tar satellit bilden och öppnar bilden 
                     image = Image.open(BytesIO(response_nasa.content))
                     
-                    image = image.resize((800, 800),)# Image.ANTIALIAS)  # minskar storleken på bilden
+                    image = image.resize((800, 800),)# minskar storleken på bilden
                     img_tk = ImageTk.PhotoImage(image) # konverterar bilden med photoimage så den kommer fram i tkinter
 
                     #tkinter label för bilden
@@ -192,32 +189,28 @@ class City: #klass för att strukturera upp väderdatan stad för stad
                     
                     self.gui.bg_label.config(image=img_tk)
                     self.gui.bg_label.image = img_tk
-                    
-                    
-                    #lägger spar funktion i get_picture eftersom den krånglar mer med koordinater än get_weather
-                    self.save_city()
 
+                    self.save_city() #sparar staden efter att ha lyckats gå igenom alla funktioner
 
-                
-                        
                 else:
-                    self.gui.weather_label.config(text="misslyckades att hämta bild")
+                    self.gui.weather_label.config(text="Failed to fetch satellite image.")
 
             except Exception as e:
-                
-                print(f"nåt gick fel med bilden {e}")
+             print(f"Something went wrong with the image: {e}")
+             self.gui.temperature_label.config(text=f"Error fetching image data for {self.name}.")
+         
          threading.Thread(target=fetch_image).start() #threadar funktionen så programmet inte hakar upp sig när bilden hämtas
 
 
 
-with open("mitt_projekt/api_key.txt","r") as API_file:   #öppnar API_key filen o läser de två nycklarna
+with open("api_key.txt","r") as API_file:   #öppnar API_key filen o läser de två nycklarna
              API_keys = API_file.readlines()
              API_keys = [key.strip() for key in API_keys]  # tar bort tomrum 
              API_key_weather = API_keys[0] # läser rad 1 som är API nyckeln till openweater
              API_key_nasa = API_keys[1] # läser rad 2 som är API nyckeln till nasa
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": #startar hela GUI-loopen
     gui = GUI()
 
     gui.root.mainloop()
